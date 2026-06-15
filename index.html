@@ -57,7 +57,7 @@
 <script type="text/babel">
 const { useState, useRef, useEffect } = React;
 
-const API_KEY  = atob("c2stYW50LWFwaTAzLVZodExzNFg5eWZYYjhrUXJlamdUSzc2MFhuQktmUzN5N0tFaDZybVo0Z3l5cWFpVEpyTmpqMEQ4RTdYQ1NlSWhJZWZ4aUp2NlQ0UkZHVFBHMGZSR2NnLWt4RkJEQUFB");
+
 const MODEL    = "claude-haiku-4-5-20251001";   // fast — swap to claude-sonnet-4-6 for deeper audits
 
 const SYSTEM_PROMPT = `You are an Instagram auditor using the Off-Market Social System framework by Michael Sartain. Score male profiles across 5 attraction criteria and classify by archetype.
@@ -350,9 +350,9 @@ function Upload({ onResult, handle }) {
       setStep('Sending…');
       const imageBlocks = compressed.map(c => ({ type:'image', source:{ type:'base64', media_type:'image/jpeg', data:c.split(',')[1] } }));
       setStep('Analyzing…');
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch("/.netlify/functions/claude", {
         method:'POST',
-        headers:{ 'Content-Type':'application/json','x-api-key':API_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+        headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({ model: MODEL, max_tokens:1200, system:SYSTEM_PROMPT,
           messages:[{ role:'user', content:[...imageBlocks,{ type:'text', text:'Audit this Instagram grid. Return only the JSON.' }] }] })
       });
