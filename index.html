@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOA Instagram Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #050505; --surface: #0e0e0e; --surface2: #141414;
+    --border: #1c1c1c; --border2: #242424;
+    --gold: #B8922A; --gold-light: #D4AA4A; --gold-dim: rgba(184,146,42,0.12);
+    --text: #F0EDE8; --muted: #6B6460; --muted2: #444;
+    --red: #C0392B; --red-dim: rgba(192,57,43,0.08);
+    --green: #2E8B57; --blue: #4A8DB8;
+  }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, sans-serif; min-height: 100vh; font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: var(--bg); } ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  .serif { font-family: 'DM Serif Display', Georgia, serif; }
+  .rule { height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); border: none; margin: 0; }
+  .label { font-size: 10px; letter-spacing: 0.25em; font-weight: 600; text-transform: uppercase; color: var(--muted); }
+  .label-gold { font-size: 10px; letter-spacing: 0.25em; font-weight: 600; text-transform: uppercase; color: var(--gold); }
+  .drop-zone { border: 1.5px dashed var(--border2); border-radius: 10px; padding: 44px 24px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+  .drop-zone:hover, .drop-zone.active { border-color: var(--gold); background: var(--gold-dim); }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-up { animation: fadeUp 0.45s ease-out both; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+  .btn-primary { width: 100%; padding: 15px; background: var(--gold); color: #000; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; letter-spacing: 0.03em; cursor: pointer; transition: background 0.15s; font-family: 'Inter', sans-serif; }
+  .btn-primary:hover:not(:disabled) { background: var(--gold-light); }
+  .btn-primary:disabled { background: var(--surface2); color: var(--muted2); cursor: not-allowed; }
+  .btn-ghost { width: 100%; padding: 13px; background: transparent; color: var(--muted); border: 1px solid var(--border2); border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: border-color 0.2s, color 0.2s; font-family: 'Inter', sans-serif; }
+  .btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+  .img-thumb { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+  .img-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .img-remove { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; background: rgba(0,0,0,0.75); border: none; color: #fff; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .field-input { width: 100%; background: var(--surface2); border: 1.5px solid var(--border2); border-radius: 8px; padding: 13px 16px; font-size: 15px; color: var(--text); font-family: 'Inter', sans-serif; transition: border-color 0.2s; outline: none; }
+  .field-input:focus { border-color: var(--gold); }
+  .field-input.error { border-color: var(--red); }
+  .code-display { font-size: 36px; font-weight: 700; letter-spacing: 0.28em; color: var(--gold-light); font-family: monospace; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)} }
+  .shake { animation: shake 0.4s ease-out; }
+  .archetype-mogul   { border-left: 3px solid #4A8DB8; }
+  .archetype-playboy { border-left: 3px solid #C0392B; }
+  .archetype-sartain { border-left: 3px solid #B8922A; }
+  .archetype-developing { border-left: 3px solid #555; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect } = React;
+
+const API_KEY  = "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";
+const MODEL    = "claude-haiku-4-5-20251001";   // fast — swap to claude-sonnet-4-6 for deeper audits
+
+const SYSTEM_PROMPT = `You are an Instagram auditor using the Off-Market Social System framework by Michael Sartain. Score male profiles across 5 attraction criteria and classify by archetype.
+
+Return ONLY valid JSON. No markdown, no backticks, no preamble. Start with { end with }. Keep ALL strings SHORT.
+
+JSON SCHEMA:
+{
+  "score": <integer 0-100, sum of 5 pillar scores>,
+  "archetype": "<The Mogul|The Playboy|The Sartain|Developing>",
+  "archetypeDesc": "<10 words max: what they're doing now>",
+  "archetypeCeiling": "<12 words max: what top 10% of this archetype have that they don't>",
+  "photoMix": {"lifestyle": <0-100>, "candid": <0-100>, "preselection": <0-100>},
+  "pillars": {
+    "relevancy": <0-20>,
+    "competency": <0-20>,
+    "scarcity": <0-20>,
+    "socialProof": <0-20>,
+    "preSelection": <0-20>
+  },
+  "coherence": <1-5>,
+  "gaps": ["<gap 1, archetype-specific, max 15 words>", "<gap 2>", "<gap 3>"],
+  "steps": [
+    {"do": "<specific action>", "why": "<10 words max>"},
+    {"do": "...", "why": "..."},
+    {"do": "...", "why": "..."},
+    {"do": "...", "why": "..."},
+    {"do": "...", "why": "..."}
+  ]
+}
+
+THE 5 CRITERIA:
+1. RELEVANCY (0-20): Clear consistent identity? Lifestyle women want to enter?
+HIGH: Consistent personal brand, aspirational aesthetic, content makes women think "I want to be in his world."
+LOW: Random content, no clear identity, domestic or boring lifestyle.
+
+2. COMPETENCY (0-20): Mastery shown visually — never explained.
+HIGH: Physical mastery in dramatic environments (climbing, sailing, motorsport, martial arts), speaking on stage, intellectual props in aspirational settings.
+LOW: Gym training videos, effort display, captions explaining skills.
+
+3. ACCESS TO SCARCITY (0-20): Resources, locations, networks most cannot access.
+HIERARCHY: Private jet > exotic supercar (man in frame) > penthouse city view > Michelin restaurant > private yacht > members-only venue > rooftop bar > luxury villa > business class.
+LOW: Same assets shot casually, assets without man, tourist spots, chain restaurants.
+
+4. SOCIAL PROOF (0-20): Man known, respected, or sought out publicly.
+HIGH: Speaking on stage, named on event branding, peer-level with known figures, media features, hosting large events.
+LOW: Fan photos with celebs, passive attendance, graduation photos.
+
+5. PRE-SELECTION (0-20): Attractive women choosing to be near him socially.
+HIERARCHY: Formal gala 3+ women > red carpet > social dance (woman engaged) > mixed group luxury venue.
+HIGH: Women making eye contact, leaning toward him, laughing. Wide shot. 3+ women > 1.
+LOW: Women present but no social connection, captions explaining the activity.
+
+PHOTO TYPES (estimate % — must sum to 100):
+LIFESTYLE: Intentional editorial — lone man, aspirational environments, status signals.
+CANDID: Natural unposed moments, spontaneous, authentic.
+PRESELECTION: Man with women in social contexts, attraction dynamics visible.
+
+ARCHETYPES:
+THE MOGUL: Brand-forward, lifestyle dominant, minimal/zero pre-selection. Gap: no women = ceiling on attraction.
+THE PLAYBOY: Pre-selection dominant. Missing: consistent brand = looks fun but no depth.
+THE SARTAIN: Brand + Pre-selection balanced. All 5 pillars solid. The target.
+DEVELOPING: No dominant strategy or insufficient content.
+
+GAP RULES:
+Mogul → flag: no pre-selection, over-reliance on solo content, missing social events.
+Playboy → flag: no lifestyle/brand, inconsistent aesthetic, missing competency.
+Sartain → flag: weakest pillar, edit consistency, location quality.
+Developing → flag: no archetype direction, content type diversity, no brand consistency.
+
+SCORING: Be harsh. Most accounts score 20-50. 70+ is rare. Never inflate.`;
+
+const PILLARS = [
+  { key: 'relevancy',    label: 'Relevancy',        icon: '🎯' },
+  { key: 'competency',   label: 'Competency',        icon: '⚡' },
+  { key: 'scarcity',     label: 'Access & Scarcity', icon: '🔑' },
+  { key: 'socialProof',  label: 'Social Proof',      icon: '🏆' },
+  { key: 'preSelection', label: 'Pre-Selection',     icon: '👥' },
+];
+
+const ARCHETYPE_META = {
+  'The Mogul':   { color: '#4A8DB8', cls: 'archetype-mogul',      emoji: '💼' },
+  'The Playboy': { color: '#C0392B', cls: 'archetype-playboy',    emoji: '🎭' },
+  'The Sartain': { color: '#B8922A', cls: 'archetype-sartain',    emoji: '👑' },
+  'Developing':  { color: '#666',    cls: 'archetype-developing', emoji: '🌱' },
+};
+
+/* ─── CODE ENGINE — per Instagram handle ─── */
+function getHandleCode(raw) {
+  const handle = raw.toLowerCase().replace(/^@/, '').replace(/[^a-z0-9._]/g, '');
+  if (!handle) return '';
+  const seed = handle + 'MOASYD26';
+  let h = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = (Math.imul(h, 0x01000193)) >>> 0; }
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = ''; let n = h;
+  for (let i = 0; i < 6; i++) { code += chars[n % chars.length]; n = Math.floor(n / chars.length); }
+  return code;
+}
+
+function scoreColor(score, max = 100) {
+  const p = (score / max) * 100;
+  if (p >= 65) return '#2ECC71';
+  if (p >= 40) return '#D4AA4A';
+  return '#E74C3C';
+}
+
+function ScoreBar({ score, max = 20 }) {
+  const [w, setW] = useState(0);
+  const pct = Math.round((score / max) * 100);
+  const c = scoreColor(score, max);
+  useEffect(() => { const t = setTimeout(() => setW(pct), 80); return () => clearTimeout(t); }, [pct]);
+  return (
+    <div style={{ background: '#181818', borderRadius: 3, height: 5, overflow: 'hidden' }}>
+      <div style={{ width: `${w}%`, height: '100%', background: c, transition: 'width 0.9s cubic-bezier(.4,0,.2,1)', borderRadius: 3 }} />
+    </div>
+  );
+}
+
+function MixBar({ pct, color, label }) {
+  const [w, setW] = useState(0);
+  useEffect(() => { const t = setTimeout(() => setW(pct), 150); return () => clearTimeout(t); }, [pct]);
+  const isLowPresel = label === 'Pre-Selection' && pct < 15;
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+        <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>{label}</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: isLowPresel ? 'var(--red)' : color }}>{pct}%</span>
+      </div>
+      <div style={{ background: '#181818', borderRadius: 3, height: 6, overflow: 'hidden' }}>
+        <div style={{ width: `${w}%`, height: '100%', background: isLowPresel ? 'var(--red)' : color, transition: 'width 1s cubic-bezier(.4,0,.2,1)', borderRadius: 3 }} />
+      </div>
+    </div>
+  );
+}
+
+/* ─── GATE — handle + code ─── */
+function Gate({ onUnlock }) {
+  const [handle, setHandle] = useState('');
+  const [code,   setCode]   = useState('');
+  const [err,    setErr]    = useState('');
+  const [shake,  setShake]  = useState(false);
+
+  const attempt = () => {
+    const h = handle.trim().replace(/^@/, '');
+    if (!h) { setErr('Enter your Instagram handle first.'); return; }
+    const expected = getHandleCode(h);
+    if (code.toUpperCase().trim() === expected) {
+      onUnlock(h);
+    } else {
+      setErr('Wrong code for that handle. Check your DMs.');
+      setShake(true); setTimeout(() => setShake(false), 500);
+    }
+  };
+
+  return (
+    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'40px 20px', textAlign:'center' }}>
+      <div style={{ maxWidth:380, width:'100%' }}>
+        <div style={{ fontSize:38, marginBottom:18 }}>🔒</div>
+        <p className="label-gold" style={{ marginBottom:12 }}>Off-Market Social System</p>
+        <h1 className="serif" style={{ fontSize:36, lineHeight:1.1, marginBottom:10 }}>Member Access</h1>
+        <hr className="rule" style={{ margin:'16px auto', maxWidth:60 }} />
+        <p style={{ color:'var(--muted)', fontSize:13, lineHeight:1.7, marginBottom:28 }}>
+          Comment on the latest post.<br/>You'll get a code tied to your handle.
+        </p>
+
+        {/* Handle input */}
+        <div style={{ marginBottom:12, textAlign:'left' }}>
+          <p className="label" style={{ marginBottom:8 }}>Your Instagram handle</p>
+          <input className="field-input" placeholder="@yourhandle" value={handle}
+            onChange={e => { setHandle(e.target.value); setErr(''); }}
+            onKeyDown={e => e.key === 'Enter' && attempt()} autoComplete="off" autoCapitalize="none" />
+        </div>
+
+        {/* Code input */}
+        <div style={{ marginBottom:20, textAlign:'left' }}>
+          <p className="label" style={{ marginBottom:8 }}>Your access code</p>
+          <input className={`field-input${shake ? ' shake error' : ''}`}
+            placeholder="6-character code" maxLength={6}
+            value={code}
+            onChange={e => { setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'')); setErr(''); }}
+            onKeyDown={e => e.key === 'Enter' && attempt()}
+            autoComplete="off" style={{ letterSpacing:'0.2em', fontWeight:600, fontSize:18 }} />
+        </div>
+
+        {err && <p style={{ color:'var(--red)', fontSize:12, marginBottom:14, textAlign:'left' }}>{err}</p>}
+
+        <button className="btn-primary" onClick={attempt}>Unlock</button>
+        <p style={{ color:'var(--muted2)', fontSize:11, marginTop:14 }}>Code is unique to your handle — can't be shared</p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── ADMIN ─── */
+function AdminView() {
+  const [input,   setInput]   = useState('');
+  const [result,  setResult]  = useState(null);
+  const [copied,  setCopied]  = useState(false);
+
+  const generate = () => {
+    const h = input.trim().replace(/^@/, '');
+    if (!h) return;
+    setResult({ handle: h, code: getHandleCode(h) });
+    setCopied(false);
+  };
+
+  const copy = () => {
+    if (!result) return;
+    navigator.clipboard.writeText(result.code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  };
+
+  const copyMsg = () => {
+    if (!result) return;
+    const msg = `Hey! Your MOA audit access code is: ${result.code}\n\nGo to grid-audit.netlify.app, enter @${result.handle} and that code to unlock it.`;
+    navigator.clipboard.writeText(msg).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  };
+
+  return (
+    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'40px 20px', textAlign:'center' }}>
+      <div style={{ maxWidth:420, width:'100%' }}>
+        <p className="label" style={{ marginBottom:14 }}>Admin · Don't share this URL</p>
+        <h1 className="serif" style={{ fontSize:30, marginBottom:24 }}>Generate Access Code</h1>
+
+        <div style={{ display:'flex', gap:8, marginBottom:24 }}>
+          <input className="field-input" placeholder="@instagramhandle" value={input}
+            onChange={e => setInput(e.target.value)} onKeyDown={e => e.key==='Enter' && generate()}
+            autoComplete="off" autoCapitalize="none" style={{ flex:1 }} />
+          <button onClick={generate} style={{ padding:'13px 20px', background:'var(--gold)', border:'none', borderRadius:8, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap', fontFamily:'Inter,sans-serif' }}>
+            Get Code
+          </button>
+        </div>
+
+        {result && (
+          <div className="fade-up">
+            <div style={{ background:'var(--gold-dim)', border:'1.5px solid rgba(184,146,42,0.3)', borderRadius:12, padding:'24px 20px', marginBottom:16 }}>
+              <p style={{ color:'var(--muted)', fontSize:12, marginBottom:6 }}>@{result.handle}</p>
+              <div className="code-display">{result.code}</div>
+            </div>
+
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12 }}>
+              <button className="btn-ghost" onClick={copy}>{copied ? '✓ Copied' : 'Copy Code'}</button>
+              <button className="btn-primary" onClick={copyMsg} style={{ fontSize:13 }}>Copy DM Message</button>
+            </div>
+
+            <p style={{ color:'var(--muted2)', fontSize:11, lineHeight:1.6 }}>
+              This code only works for <strong style={{ color:'var(--muted)' }}>@{result.handle}</strong>.<br/>
+              If they share it, it won't work on a different handle.
+            </p>
+          </div>
+        )}
+
+        <hr className="rule" style={{ margin:'28px 0' }} />
+        <p style={{ color:'var(--muted2)', fontSize:11 }}>Generate a unique code for anyone who comments.<br/>No expiry. No resets. One DM per person.</p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── UPLOAD ─── */
+function Upload({ onResult, handle }) {
+  const [imgs, setImgs] = useState([]); const [drag, setDrag] = useState(false);
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState(null);
+  const [step, setStep] = useState(''); const ref = useRef();
+
+  const compress = (dataUrl) => new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 900; const scale = img.width > MAX ? MAX / img.width : 1;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.src = dataUrl;
+  });
+
+  const load = (files) => {
+    const valid = Array.from(files).filter(f => f.type.startsWith('image/'));
+    Promise.all(valid.map(f => new Promise(res => {
+      const r = new FileReader(); r.onload = e => res({ preview: e.target.result, raw: e.target.result }); r.readAsDataURL(f);
+    }))).then(data => setImgs(prev => [...prev, ...data].slice(0, 12)));
+  };
+
+  const run = async () => {
+    if (!imgs.length) return; setBusy(true); setErr(null);
+    try {
+      setStep('Compressing…');
+      const compressed = await Promise.all(imgs.map(i => compress(i.raw)));
+      setStep('Sending…');
+      const imageBlocks = compressed.map(c => ({ type:'image', source:{ type:'base64', media_type:'image/jpeg', data:c.split(',')[1] } }));
+      setStep('Analyzing…');
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json','x-api-key':API_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+        body: JSON.stringify({ model: MODEL, max_tokens:1200, system:SYSTEM_PROMPT,
+          messages:[{ role:'user', content:[...imageBlocks,{ type:'text', text:'Audit this Instagram grid. Return only the JSON.' }] }] })
+      });
+      const d = await res.json();
+      if (d.error) throw new Error(d.error.message);
+      const raw = d.content[0].text.replace(/```json|```/g,'').trim();
+      onResult(JSON.parse(raw));
+    } catch(e) { setErr(e.message || 'Analysis failed. Try again.'); }
+    finally { setBusy(false); setStep(''); }
+  };
+
+  return (
+    <div style={{ maxWidth:600, margin:'0 auto', padding:'48px 20px 60px' }}>
+      <div style={{ textAlign:'center', marginBottom:44 }}>
+        <p className="label-gold" style={{ marginBottom:14 }}>Off-Market Social System</p>
+        <h1 className="serif" style={{ fontSize:40, lineHeight:1.1, marginBottom:12 }}>Instagram Audit</h1>
+        <hr className="rule" style={{ margin:'18px auto', maxWidth:80 }} />
+        {handle && <p style={{ color:'var(--muted)', fontSize:13, marginBottom:4 }}>Auditing <span style={{ color:'var(--gold)' }}>@{handle}</span></p>}
+        <p style={{ color:'var(--muted)', fontSize:14 }}>Upload your grid screenshots.<br/>Get your archetype, gaps, and next steps.</p>
+      </div>
+
+      <div className={`drop-zone ${drag?'active':''}`} onClick={()=>ref.current?.click()}
+        onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)}
+        onDrop={e=>{e.preventDefault();setDrag(false);load(e.dataTransfer.files);}} style={{ marginBottom:18 }}>
+        <div style={{ fontSize:30, marginBottom:10 }}>📸</div>
+        <p style={{ fontSize:15, fontWeight:500, marginBottom:5 }}>Drop screenshots here</p>
+        <p style={{ color:'var(--muted)', fontSize:13 }}>or tap to browse · up to 12 images</p>
+        <input ref={ref} type="file" accept="image/*" multiple style={{ display:'none' }} onChange={e=>load(e.target.files)} />
+      </div>
+
+      {imgs.length > 0 && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:20 }}>
+          {imgs.map((img,i) => (
+            <div key={i} className="img-thumb">
+              <img src={img.preview||img.raw} alt="" />
+              <button className="img-remove" onClick={()=>setImgs(p=>p.filter((_,j)=>j!==i))}>✕</button>
+            </div>
+          ))}
+          {imgs.length < 12 && (
+            <div onClick={()=>ref.current?.click()} style={{ aspectRatio:'1', borderRadius:6, border:'1.5px dashed var(--border2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--muted2)', fontSize:22 }}
+              onMouseEnter={e=>e.currentTarget.style.borderColor='var(--gold)'} onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border2)'}>+</div>
+          )}
+        </div>
+      )}
+
+      {err && <div style={{ background:'rgba(192,57,43,0.1)', border:'1px solid rgba(192,57,43,0.25)', borderRadius:8, padding:'12px 16px', color:'#E74C3C', fontSize:13, marginBottom:16 }}>{err}</div>}
+
+      <button className="btn-primary" onClick={run} disabled={!imgs.length||busy}>
+        {busy ? `⏳  ${step}` : imgs.length===0 ? 'Upload screenshots to begin' : `Analyze ${imgs.length} screenshot${imgs.length!==1?'s':''}`}
+      </button>
+      <p style={{ textAlign:'center', color:'var(--muted2)', fontSize:11, marginTop:14 }}>Powered by Claude AI · ~5 seconds</p>
+    </div>
+  );
+}
+
+/* ─── RESULTS ─── */
+function Results({ data, onReset }) {
+  const { score, archetype, archetypeDesc, archetypeCeiling, photoMix, pillars, coherence, gaps, steps } = data;
+  const meta = ARCHETYPE_META[archetype] || ARCHETYPE_META['Developing'];
+  const tc = scoreColor(score);
+  const photoTypes = [
+    { key: 'lifestyle',    label: 'Lifestyle',     color: 'var(--gold)' },
+    { key: 'candid',       label: 'Candid',        color: 'var(--blue)' },
+    { key: 'preselection', label: 'Pre-Selection', color: photoMix.preselection < 15 ? 'var(--red)' : 'var(--green)' },
+  ];
+
+  return (
+    <div style={{ maxWidth:660, margin:'0 auto', padding:'44px 20px 64px' }}>
+
+      {/* Score + Archetype */}
+      <div style={{ display:'flex', gap:16, alignItems:'stretch', marginBottom:14 }} className="fade-up">
+        <div style={{ position:'relative', flexShrink:0, width:90, height:90 }}>
+          <svg width="90" height="90" viewBox="0 0 90 90">
+            <circle cx="45" cy="45" r="38" fill="none" stroke="#1a1a1a" strokeWidth="5"/>
+            <circle cx="45" cy="45" r="38" fill="none" stroke={tc} strokeWidth="5"
+              strokeDasharray={`${2*Math.PI*38*score/100} ${2*Math.PI*38*(1-score/100)}`}
+              strokeLinecap="round" strokeDashoffset={2*Math.PI*38*0.25}
+              style={{ transition:'stroke-dasharray 1.2s cubic-bezier(.4,0,.2,1)', filter:`drop-shadow(0 0 6px ${tc}55)` }}/>
+          </svg>
+          <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+            <span className="serif" style={{ fontSize:28, color:tc, lineHeight:1 }}>{score}</span>
+            <span style={{ fontSize:9, color:'var(--muted)' }}>/ 100</span>
+          </div>
+        </div>
+        <div className={`card ${meta.cls}`} style={{ flex:1 }}>
+          <p className="label" style={{ marginBottom:6 }}>Archetype</p>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+            <span style={{ fontSize:16 }}>{meta.emoji}</span>
+            <span className="serif" style={{ fontSize:22, color:meta.color }}>{archetype}</span>
+          </div>
+          <p style={{ fontSize:12, color:'var(--muted)', lineHeight:1.5 }}>{archetypeDesc}</p>
+        </div>
+      </div>
+
+      {/* Photo mix */}
+      <div className="card fade-up" style={{ marginBottom:14, animationDelay:'0.07s' }}>
+        <p className="label" style={{ marginBottom:14 }}>Content Mix</p>
+        {photoTypes.map(pt => <MixBar key={pt.key} pct={photoMix[pt.key]||0} color={pt.color} label={pt.label} />)}
+        {(photoMix.preselection||0) < 15 && (
+          <p style={{ fontSize:11, color:'var(--red)', marginTop:6 }}>⚠ Pre-selection under 15% — primary gap for this archetype</p>
+        )}
+      </div>
+
+      {/* Ceiling */}
+      <div className="card fade-up" style={{ marginBottom:14, animationDelay:'0.12s', borderColor:`${meta.color}30` }}>
+        <p className="label" style={{ marginBottom:8 }}>Where {archetype} peaks</p>
+        <p style={{ fontSize:13, color:'#ccc', lineHeight:1.6 }}>{archetypeCeiling}</p>
+      </div>
+
+      {/* Pillars */}
+      <div className="card fade-up" style={{ marginBottom:14, animationDelay:'0.17s' }}>
+        <p className="label" style={{ marginBottom:14 }}>5 Criteria</p>
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          {PILLARS.map(({ key, label, icon }) => {
+            const s = pillars[key]||0; const c = scoreColor(s, 20);
+            return (
+              <div key={key}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
+                  <span style={{ fontSize:12, fontWeight:500 }}><span style={{ marginRight:6 }}>{icon}</span>{label}</span>
+                  <span style={{ fontSize:13, fontWeight:700, color:c }}>{s}<span style={{ color:'var(--muted2)', fontWeight:400 }}>/20</span></span>
+                </div>
+                <ScoreBar score={s} max={20} />
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ marginTop:14, paddingTop:12, borderTop:'1px solid var(--border)', display:'flex', justifyContent:'space-between' }}>
+          <span style={{ fontSize:11, color:'var(--muted)' }}>Grid coherence</span>
+          <span style={{ fontSize:13, fontWeight:600, color:scoreColor(coherence,5) }}>{coherence}/5</span>
+        </div>
+      </div>
+
+      {/* Gaps */}
+      <div className="card fade-up" style={{ marginBottom:14, animationDelay:'0.22s', background:'var(--red-dim)', borderColor:'rgba(192,57,43,0.2)' }}>
+        <p style={{ fontSize:10, letterSpacing:'0.25em', fontWeight:600, textTransform:'uppercase', color:'var(--red)', marginBottom:14 }}>What's Missing</p>
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {gaps.map((g, i) => (
+            <div key={i} style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
+              <span style={{ color:'var(--red)', fontWeight:700, fontSize:12, minWidth:16, marginTop:1 }}>{i+1}</span>
+              <p style={{ fontSize:13, color:'#ddd', lineHeight:1.5 }}>{g}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Steps */}
+      <div className="card fade-up" style={{ marginBottom:32, animationDelay:'0.27s' }}>
+        <p className="label-gold" style={{ marginBottom:16 }}>Next Steps</p>
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          {steps.map((s, i) => (
+            <div key={i} style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
+              <div style={{ minWidth:24, height:24, borderRadius:'50%', background:'var(--gold)', color:'#000', fontWeight:700, fontSize:11, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{i+1}</div>
+              <div>
+                <p style={{ fontSize:13, fontWeight:500, marginBottom:2 }}>{s.do}</p>
+                <p style={{ fontSize:11, color:'var(--muted)', lineHeight:1.5 }}>{s.why}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <hr className="rule" style={{ marginBottom:24 }} />
+      <button className="btn-ghost" onClick={onReset}>← Audit Another Account</button>
+    </div>
+  );
+}
+
+/* ─── APP ─── */
+function App() {
+  const isAdmin  = window.location.search.includes('admin');
+  const [handle, setHandle] = useState(null);
+  const [result, setResult] = useState(null);
+
+  if (isAdmin)    return <AdminView />;
+  if (!handle)    return <Gate onUnlock={h => setHandle(h)} />;
+  return result
+    ? <Results data={result} onReset={() => setResult(null)} />
+    : <Upload onResult={setResult} handle={handle} />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
